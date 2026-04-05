@@ -48,25 +48,16 @@ class MultiQueryFusion:
         """
 
         try:
-            if self.config.provider == "openai":
-                response = self.config.client.chat.completions.create(
-                    model=self.config.model,
-                    messages=[
-                        {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": query},
-                    ],
-                    temperature=0.7,
-                )
-                alt_queries = response.choices[0].message.content.strip().split("\n")
+            from ..providers.model_router import ChatMessage
 
-            elif self.config.provider == "anthropic":
-                response = self.config.client.messages.create(
-                    model=self.config.model,
-                    system=system_prompt,
-                    messages=[{"role": "user", "content": query}],
-                    temperature=0.7,
-                )
-                alt_queries = response.content[0].text.strip().split("\n")
+            response = self.config.client.chat(
+                messages=[
+                    ChatMessage(role="system", content=system_prompt),
+                    ChatMessage(role="user", content=query),
+                ],
+                temperature=0.7,
+            )
+            alt_queries = response.content.strip().split("\n")
 
             # Filter out empty queries
             alt_queries = [q.strip() for q in alt_queries if q.strip()]

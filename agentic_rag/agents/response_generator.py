@@ -42,25 +42,16 @@ class ResponseGenerator:
         """
 
         try:
-            if self.config.provider == "openai":
-                response = self.config.client.chat.completions.create(
-                    model=self.config.model,
-                    messages=[
-                        {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": user_message},
-                    ],
-                    temperature=self.config.temperature,
-                )
-                return response.choices[0].message.content
+            from ..providers.model_router import ChatMessage
 
-            elif self.config.provider == "anthropic":
-                response = self.config.client.messages.create(
-                    model=self.config.model,
-                    system=system_prompt,
-                    messages=[{"role": "user", "content": user_message}],
-                    temperature=self.config.temperature,
-                )
-                return response.content[0].text
+            response = self.config.client.chat(
+                messages=[
+                    ChatMessage(role="system", content=system_prompt),
+                    ChatMessage(role="user", content=user_message),
+                ],
+                temperature=self.config.temperature,
+            )
+            return response.content
 
         except Exception as e:
             logger.error(f"Error generating response: {str(e)}")

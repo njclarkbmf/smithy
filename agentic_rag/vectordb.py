@@ -124,25 +124,22 @@ class VectorDBManager:
         """Get embeddings for a list of texts using the configured model."""
         if isinstance(texts, pd.Series):
             texts = texts.tolist()
-            
+
         embeddings = []
         batch_size = 100  # OpenAI can handle larger batches, but this is safer
-        
+
         for i in range(0, len(texts), batch_size):
             batch = texts[i:i+batch_size]
-            
+
             try:
-                response = self.config.client.embeddings.create(
-                    model=self.config.embedding_model,
-                    input=batch
-                )
-                batch_embeddings = [r.embedding for r in response.data]
+                response = self.config.client.embed(batch)
+                batch_embeddings = response.embeddings
                 embeddings.extend(batch_embeddings)
-                
+
                 # Respect rate limits
                 if i + batch_size < len(texts):
                     time.sleep(0.5)
-                    
+
             except Exception as e:
                 logger.error(f"Error getting embeddings: {str(e)}")
                 # Return zero embeddings as fallback

@@ -1,0 +1,34 @@
+# ──────────────────────────────────────────────────────────────
+# Test overlay — ephemeral, mocked LLM, coverage reporting
+# ──────────────────────────────────────────────────────────────
+services:
+  agentic-rag-test:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: dev
+    volumes:
+      - .:/app:cached
+      - test_results:/app/test-results
+    environment:
+      - OPENAI_API_KEY=test_mock_key
+      - ANTHROPIC_API_KEY=test_mock_key
+      - DASHSCOPE_API_KEY=test_mock_key
+      - DB_PATH=/tmp/test_lancedb
+      - LOG_LEVEL=WARNING
+    command: >
+      bash -c "
+        pip install pytest-cov pytest-xdist &&
+        pytest tests/ -v --cov=agentic_rag \
+          --cov-report=xml:/app/test-results/coverage.xml \
+          --junitxml=/app/test-results/report.xml
+      "
+    healthcheck:
+      test: ["CMD", "python", "-c", "import agentic_rag; print('OK')"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+volumes:
+  test_results:

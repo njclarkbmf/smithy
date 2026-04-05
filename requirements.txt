@@ -7,6 +7,7 @@ tqdm>=4.62.0
 nltk>=3.6.0
 beautifulsoup4>=4.10.0
 requests>=2.27.0
+python-dotenv>=1.0.0
 
 # Vector database
 lancedb>=0.3.0
@@ -19,6 +20,9 @@ langchainhub>=0.0.1
 langchain-text-splitters>=0.0.1
 langgraph>=0.0.15
 tiktoken>=0.5.0
+
+# Qwen / DashScope
+dashscope>=1.14.0
 
 # UI components
 gradio>=3.50.0

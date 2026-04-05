@@ -168,24 +168,18 @@ class EvaluationMetrics:
         """
 
         try:
-            if rag_system.config.provider == "openai":
-                response = rag_system.config.client.chat.completions.create(
-                    model=rag_system.config.model,
-                    messages=[{"role": "user", "content": eval_prompt}],
-                    temperature=0.0,
-                    response_format={"type": "json_object"},
-                )
-                eval_result = json.loads(response.choices[0].message.content)
+            from ..providers.model_router import ChatMessage
 
-            elif rag_system.config.provider == "anthropic":
-                response = rag_system.config.client.messages.create(
-                    model=rag_system.config.model,
-                    messages=[{"role": "user", "content": eval_prompt}],
-                    temperature=0.0,
-                )
-                # Extract JSON from the response
-                result_text = response.content[0].text
-                eval_result = json.loads(result_text)
+            response_format = None
+            if rag_system.config.client.is_json_mode_supported():
+                response_format = {"type": "json_object"}
+
+            response = rag_system.config.client.chat(
+                messages=[ChatMessage(role="user", content=eval_prompt)],
+                temperature=0.0,
+                response_format=response_format,
+            )
+            eval_result = json.loads(response.content)
 
             return eval_result
 

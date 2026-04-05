@@ -1,0 +1,32 @@
+# ──────────────────────────────────────────────────────────────
+# Development overlay — hot-reload, debug, verbose logging
+# ──────────────────────────────────────────────────────────────
+services:
+  agentic-rag:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: dev
+    volumes:
+      - .:/app:cached
+    environment:
+      - LOG_LEVEL=DEBUG
+      - PYTHONUNBUFFERED=1
+      - GRADIO_SERVER_NAME=0.0.0.0
+      - GRADIO_SERVER_PORT=7860
+    stdin_open: true
+    tty: true
+
+  # Optional local LLM (profile: local-llm)
+  # Usage: docker compose --profile local-llm -f docker-compose.yml -f docker-compose.dev.yml up
+  llm-mock:
+    image: ghcr.io/huggingface/text-generation-inference:latest
+    ports:
+      - "8080:80"
+    volumes:
+      - ./models:/data
+    environment:
+      - MODEL_ID=Qwen/Qwen2.5-0.5B-Instruct
+      - NUM_SHARD=1
+    profiles:
+      - local-llm

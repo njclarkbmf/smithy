@@ -4,16 +4,14 @@ import pytest
 import pandas as pd
 from unittest.mock import MagicMock, patch
 
-# Add the parent directory to sys.path to import agentic_rag
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-# Set test environment variables
 @pytest.fixture(scope="session", autouse=True)
 def set_test_env():
-    """Set environment variables for tests."""
     test_env = {
         "OPENAI_API_KEY": "test_key",
         "ANTHROPIC_API_KEY": "test_key",
+        "DASHSCOPE_API_KEY": "test_key",
         "LLM_PROVIDER": "openai",
         "LLM_MODEL": "gpt-4o",
         "DB_PATH": "./test_lancedb"
@@ -21,30 +19,31 @@ def set_test_env():
     with patch.dict(os.environ, test_env, clear=False):
         yield
 
-# Globally patch the client initializations to prevent real API calls
 @pytest.fixture(autouse=True)
 def mock_external_apis():
-    """Automatically mock all external API clients for all tests."""
     with patch('openai.OpenAI') as mock_openai, \
          patch('anthropic.Anthropic') as mock_anthropic, \
+         patch('dashscope.api_key', create=True), \
+         patch('dashscope.Generation', create=True) as mock_dashscope_gen, \
+         patch('dashscope.TextEmbedding', create=True) as mock_dashscope_emb, \
          patch('dotenv.load_dotenv') as mock_load_dotenv:
-        
-        # Create mock OpenAI client with typical responses
+
+        # Setup OpenAI mock
         mock_openai_instance = MagicMock()
         mock_chat_response = MagicMock()
         mock_chat_response.choices = [MagicMock()]
         mock_chat_response.choices[0].message.content = "Mocked response"
         mock_openai_instance.chat.completions.create.return_value = mock_chat_response
-        
+
         # Setup embedding response
         mock_embedding_response = MagicMock()
         mock_embedding_response.data = [MagicMock()]
         mock_embedding_response.data[0].embedding = [0.1] * 1536
         mock_openai_instance.embeddings.create.return_value = mock_embedding_response
-        
+
         # Return the mock instance when OpenAI is initialized
         mock_openai.return_value = mock_openai_instance
-        
+
         # Similar setup for Anthropic
         mock_anthropic_instance = MagicMock()
         mock_content = MagicMock()
@@ -53,16 +52,28 @@ def mock_external_apis():
         mock_anthropic_response.content = [mock_content]
         mock_anthropic_instance.messages.create.return_value = mock_anthropic_response
         mock_anthropic.return_value = mock_anthropic_instance
-        
+
+        # Setup DashScope mock
+        mock_dash_resp = MagicMock()
+        mock_dash_resp.status_code = 200
+        mock_dash_choice = MagicMock()
+        mock_dash_choice.message.content = "Mocked qwen response"
+        mock_dash_resp.output.choices = [mock_dash_choice]
+        mock_dashscope_gen.call.return_value = mock_dash_resp
+
+        mock_dash_emb_resp = MagicMock()
+        mock_dash_emb_resp.status_code = 200
+        mock_dash_emb_resp.output = {"embeddings": [{"embedding": [0.1] * 1024}]}
+        mock_dashscope_emb.call.return_value = mock_dash_emb_resp
+
         yield
 
-# Set up mock modules before any imports
+# Import modules with mocks in place
 with patch.dict('sys.modules', {
     'lancedb': MagicMock(),
     'lancedb.pydantic': MagicMock(),
     'lancedb.embeddings': MagicMock()
 }):
-    # Import modules with mocks in place
     from agentic_rag.config import Config
     from agentic_rag.document import Document, DocumentProcessor
     from agentic_rag.vectordb import VectorDBManager, ChunkModel
@@ -104,84 +115,74 @@ def mock_config():
     config.chunk_overlap = 100
     config.temperature = 0.1
     config.top_k = 3
-    
-    # Create mock client
-    config.client = MagicMock()
-    mock_response = MagicMock()
-    mock_choice = MagicMock()
-    mock_message = MagicMock()
-    mock_message.content = "Mock response"
-    mock_choice.message = mock_message
-    mock_response.choices = [mock_choice]
-    config.client.chat.completions.create.return_value = mock_response
-    
-    # Mock embeddings
-    mock_embedding_response = MagicMock()
-    mock_data = [MagicMock()]
-    mock_data[0].embedding = [0.1, 0.2, 0.3, 0.4]
-    mock_embedding_response.data = mock_data
-    config.client.embeddings.create.return_value = mock_embedding_response
-    
+
+    # Create mock ModelRouter interface
+    mock_router = MagicMock()
+
+    # Mock chat response
+    mock_chat_resp = MagicMock()
+    mock_chat_resp.content = "Mock response"
+    mock_router.chat.return_value = mock_chat_resp
+
+    # Mock embedding response
+    mock_emb_resp = MagicMock()
+    mock_emb_resp.embeddings = [[0.1, 0.2, 0.3, 0.4]] * 2
+    mock_router.embed.return_value = mock_emb_resp
+
+    # Mock JSON mode support
+    mock_router.is_json_mode_supported.return_value = True
+    mock_router.provider = "openai"
+
+    config.client = mock_router
+
     # Mock database
     mock_db = MagicMock()
     mock_table = MagicMock()
     mock_search = MagicMock()
     mock_limit = MagicMock()
-    
+
     mock_limit.to_pandas.return_value = pd.DataFrame([
         {"id": "doc1", "source": "source1", "content": "content1", "embedding": [0.1, 0.2, 0.3, 0.4]},
         {"id": "doc2", "source": "source2", "content": "content2", "embedding": [0.1, 0.2, 0.3, 0.4]}
     ])
-    
+
     mock_search.limit.return_value = mock_limit
     mock_table.search.return_value = mock_search
     mock_table.add.return_value = None
     mock_db.open_table.return_value = mock_table
     mock_db.table_names.return_value = ["document_chunks"]
     config.db = mock_db
-    
+
     return config
 
 @pytest.fixture
 def document_processor(mock_config):
-    """Document processor for testing."""
+    """Document processor fixture."""
     return DocumentProcessor(mock_config)
 
 @pytest.fixture
 def vector_db_manager(mock_config):
-    """Vector database manager for testing."""
+    """Vector DB manager fixture."""
     with patch('agentic_rag.vectordb.VectorDBManager._ensure_table_exists'):
         manager = VectorDBManager(mock_config)
-        
-        # Mock get_embeddings method
-        manager._get_embeddings = MagicMock(return_value=[
-            [0.1, 0.2, 0.3, 0.4],
-            [0.1, 0.2, 0.3, 0.4]
-        ])
-        
+        manager._get_embeddings = MagicMock(return_value=[[0.1, 0.2, 0.3, 0.4], [0.1, 0.2, 0.3, 0.4]])
         return manager
 
 @pytest.fixture
 def query_planner(mock_config):
-    """Query planner for testing."""
+    """Query planner fixture."""
     planner = QueryPlanner(mock_config)
-    
-    # Mock the plan_query method
     planner.plan_query = MagicMock(return_value=["subquery1", "subquery2"])
-    
     return planner
 
 @pytest.fixture
 def info_retriever(vector_db_manager):
-    """Information retriever for testing."""
+    """Info retriever fixture."""
     retriever = InfoRetriever(vector_db_manager)
-    
-    # Set up the retrieve method to return test data
     def mock_retrieve(queries, top_k=None):
-        # Return unique results for each query
         results = []
         for i, query in enumerate(queries):
-            for j in range(1, 3):  # Two results per query
+            for j in range(1, 3):
                 results.append({
                     "id": f"doc{i+1}_{j}",
                     "source": f"source{i+1}_{j}",
@@ -190,33 +191,23 @@ def info_retriever(vector_db_manager):
                     "embedding": [0.1, 0.2, 0.3, 0.4]
                 })
         return results
-        
-    # Replace the actual implementation with our mock
     retriever.retrieve = mock_retrieve
-    
     return retriever
 
 @pytest.fixture
 def response_generator(mock_config):
-    """Response generator for testing."""
+    """Response generator fixture."""
     generator = ResponseGenerator(mock_config)
-    
-    # Mock the generate method
     generator.generate = MagicMock(return_value="This is a generated response.")
-    
     return generator
 
 @pytest.fixture
-def rag_system(mock_config, document_processor, vector_db_manager, 
-               query_planner, info_retriever, response_generator):
-    """RAG system for testing."""
+def rag_system(mock_config, document_processor, vector_db_manager, query_planner, info_retriever, response_generator):
+    """Full RAG system fixture."""
     rag = AgenticRAG(mock_config)
-    
-    # Replace components with mocks
     rag.document_processor = document_processor
     rag.vector_db = vector_db_manager
     rag.query_planner = query_planner
     rag.info_retriever = info_retriever
     rag.response_generator = response_generator
-    
     return rag

@@ -8,3 +8,6 @@ from unittest.mock import MagicMock
 sys.modules['lancedb'] = MagicMock()
 sys.modules['lancedb.pydantic'] = MagicMock()
 sys.modules['lancedb.embeddings'] = MagicMock()
+sys.modules['dashscope'] = MagicMock()
+sys.modules['dashscope.Generation'] = MagicMock()
+sys.modules['dashscope.TextEmbedding'] = MagicMock()

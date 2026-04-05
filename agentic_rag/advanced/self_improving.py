@@ -98,20 +98,13 @@ class FeedbackCollector:
         """
 
         try:
-            if rag_system.config.provider == "openai":
-                response = rag_system.config.client.chat.completions.create(
-                    model=rag_system.config.model,
-                    messages=[{"role": "user", "content": analysis_prompt}],
-                    temperature=0.0,
-                )
-                analysis = response.choices[0].message.content
-            elif rag_system.config.provider == "anthropic":
-                response = rag_system.config.client.messages.create(
-                    model=rag_system.config.model,
-                    messages=[{"role": "user", "content": analysis_prompt}],
-                    temperature=0.0,
-                )
-                analysis = response.content[0].text
+            from ..providers.model_router import ChatMessage
+
+            response = rag_system.config.client.chat(
+                messages=[ChatMessage(role="user", content=analysis_prompt)],
+                temperature=0.0,
+            )
+            analysis = response.content
 
             # Save analysis to metrics
             self.feedback_data["metrics"]["latest_analysis"] = {
@@ -254,21 +247,13 @@ class SelfImprovingRAG:
         """
 
         try:
-            if self.config.provider == "openai":
-                eval_response = self.config.client.chat.completions.create(
-                    model=self.config.model,
-                    messages=[{"role": "user", "content": eval_prompt}],
-                    temperature=0.0,
-                )
-                rating_text = eval_response.choices[0].message.content.strip()
+            from ..providers.model_router import ChatMessage
 
-            elif self.config.provider == "anthropic":
-                eval_response = self.config.client.messages.create(
-                    model=self.config.model,
-                    messages=[{"role": "user", "content": eval_prompt}],
-                    temperature=0.0,
-                )
-                rating_text = eval_response.content[0].text.strip()
+            eval_response = self.config.client.chat(
+                messages=[ChatMessage(role="user", content=eval_prompt)],
+                temperature=0.0,
+            )
+            rating_text = eval_response.content.strip()
 
             # Extract the rating
             rating = int(rating_text[0]) if rating_text[0].isdigit() else 3
@@ -322,21 +307,13 @@ class SelfImprovingRAG:
         """
 
         try:
-            if self.config.provider == "openai":
-                report_response = self.config.client.chat.completions.create(
-                    model=self.config.model,
-                    messages=[{"role": "user", "content": report_prompt}],
-                    temperature=0.0,
-                )
-                report = report_response.choices[0].message.content
+            from ..providers.model_router import ChatMessage
 
-            elif self.config.provider == "anthropic":
-                report_response = self.config.client.messages.create(
-                    model=self.config.model,
-                    messages=[{"role": "user", "content": report_prompt}],
-                    temperature=0.0,
-                )
-                report = report_response.content[0].text
+            report_response = self.config.client.chat(
+                messages=[ChatMessage(role="user", content=report_prompt)],
+                temperature=0.0,
+            )
+            report = report_response.content
 
             return {
                 "status": "Report generated",
