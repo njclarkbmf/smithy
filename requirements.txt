@@ -25,7 +25,7 @@ tiktoken>=0.5.0
 dashscope>=1.14.0
 
 # UI components
-gradio>=3.50.0
+gradio>=4.44.1
 
 # Optional dependencies (uncomment as needed)
 # PyPDF2>=3.0.0        # For PDF processing
