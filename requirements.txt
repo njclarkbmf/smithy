@@ -10,7 +10,7 @@ requests>=2.27.0
 python-dotenv>=1.0.0
 
 # Vector database
-lancedb>=0.3.0
+lancedb>=0.27.1
 
 # LangChain components
 langchain>=0.1.0
