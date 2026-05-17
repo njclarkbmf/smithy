@@ -17,7 +17,7 @@ langchain>=0.1.0
 langchain-community>=0.3.31
 langchain-openai>=0.0.2
 langchainhub>=0.1.21
-langchain-text-splitters>=0.0.1
+langchain-text-splitters>=0.3.11
 langgraph>=0.6.11
 tiktoken>=0.5.0
 
